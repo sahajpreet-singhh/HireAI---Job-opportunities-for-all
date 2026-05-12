@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+             data.keys().size() <= 10 &&
+             data.email is string &&
+             data.role in ['seeker', 'employer'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidJob(data) {
+      return data.keys().hasAll(['ownerId', 'title', 'description', 'companyName', 'createdAt', 'updatedAt']) &&
+             data.ownerId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 5000 &&
+             data.companyName is string &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll(['jobId', 'seekerId', 'employerId', 'status', 'appliedAt']) &&
+             data.seekerId == request.auth.uid &&
+             data.jobId is string &&
+             data.employerId is string &&
+             data.status in ['pending', 'reviewed', 'accepted', 'rejected'] &&
+             data.appliedAt is timestamp;
+    }
+
+    // --- Collection Matches ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if false; // Users shouldn't be listable by everyone
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role']);
+    }
+
+    match /jobs/{jobId} {
+      allow get: if true; // Publicly viewable
+      allow list: if true; // Publicly listable
+      allow create: if isSignedIn() && isValidJob(incoming());
+      allow update: if isSignedIn() && isOwner(existing().ownerId) && isValidJob(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'companyName', 'companyLogo', 'location', 'type', 'salary', 'category', 'aiMatchScore', 'updatedAt']);
+      allow delete: if isSignedIn() && isOwner(existing().ownerId);
+    }
+
+    match /applications/{applicationId} {
+      // Seekers can read their own applications
+      // Employers can read applications for their jobs
+      allow get: if isSignedIn() && (isOwner(existing().seekerId) || isOwner(existing().employerId));
+      allow list: if isSignedIn() && (resource.data.seekerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+      
+      allow create: if isSignedIn() && isValidApplication(incoming());
+      allow update: if isSignedIn() && (
+        // Seeker can update status? No, usually employer updates status
+        (isOwner(existing().employerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      );
+      allow delete: if isSignedIn() && isOwner(existing().seekerId);
+    }
+  }
+}

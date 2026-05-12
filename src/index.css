@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", serif;
+  
+  --color-accent: #2C4F4A;
+  --color-secondary-accent: #9DBEB9;
+  --color-pastel-blue: #E2EFED;
+  --color-pastel-pink: #F2E3D5;
+  --color-pastel-green: #9DBEB9;
+  --color-pastel-purple: #E2EFED;
+  --color-pastel-yellow: #F2E3D5;
+  --color-soft-bg: #F7F9FA;
+}
+
+@layer base {
+  body {
+    @apply bg-soft-bg text-gray-900 font-sans selection:bg-accent/20;
+  }
+  
+  h1, h2, h3, h4 {
+    @apply font-medium tracking-tight;
+  }
+}
+
+.glass {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-sm;
+}
+
+.pastel-grad {
+  background: linear-gradient(135deg, var(--color-pastel-blue) 0%, var(--color-pastel-pink) 100%);
+}
+
+.button-primary {
+  @apply px-6 py-3 bg-accent text-white rounded-full font-medium transition-all hover:shadow-lg hover:shadow-accent/30 hover:-translate-y-0.5 active:translate-y-0;
+}
+
+.button-secondary {
+  @apply px-6 py-3 bg-white text-gray-700 border border-gray-100 rounded-full font-medium transition-all hover:bg-gray-50 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0;
+}
